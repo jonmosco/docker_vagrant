@@ -1,0 +1,41 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby
+
+## Memory
+MEMORY="512"
+
+$script = <<EOF
+
+EOF
+
+## This environment requires a working and semi-sane DNS
+## vagrant-hosts plugin will provide this
+unless Vagrant.has_plugin?("vagrant-hosts")
+  raise "This environment requires a sane DNS setup.  Please install
+  the vagrant-hosts plugin"
+end
+
+Vagrant.configure('2') do |config|
+
+  ## Increase our memory
+  config.vm.synced_folder ".", "/vagrant", type: "nfs"
+  config.vm.provider "vmware_fusion" do |v|
+    v.vmx["memsize"] = "#{MEMORY}"
+  end
+
+  ## Our Docker Host
+  config.vm.define 'host' do |host|
+    host.vm.box = "jonnyx/centos7_vmware_nfs_base"
+    host.vm.hostname = 'host'
+    host.vm.network :private_network, ip: "192.168.34.10"
+    host.vm.provision "shell", inline: $script
+
+    host.vm.provision "docker" do |provisioner|
+      provisioner.pull_images "ubuntu"
+      provisioner.run "ubuntu",
+        cmd: "bash -l",
+        args: "-v '/vagrant:/var/www'"
+    end
+
+  end
+end
